@@ -26,9 +26,16 @@ def generate_world(seed: int | None = None):
     last_grid = None
     last_seed = None
 
+    # When a seed is provided, the whole attempt sequence is deterministic:
+    # first try `seed`, then seeds derived from a stream seeded by it. When no
+    # seed is given, every attempt uses a fresh random seed.
+    derived = np.random.default_rng(seed) if seed is not None else None
+
     for _ in range(config.MAX_GEN_ATTEMPTS):
         if seed is not None and last_seed is None:
             s = int(seed)
+        elif seed is not None:
+            s = int(derived.integers(0, 2**31))
         else:
             s = int(np.random.default_rng().integers(0, 2**31))
         rng = np.random.default_rng(s)

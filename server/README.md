@@ -50,4 +50,20 @@ world.py    border + radial-line generation, 8-conn connectivity, carve
 coins.py    coin spawn logic
 config.py   constants + env overrides
 api.py      pydantic request schemas + error codes
+tests/      pytest suite (world, tick, collisions, coins, api)
 ```
+
+## Tests
+
+```bash
+cd server
+.venv/bin/pip install -r requirements-dev.txt
+.venv/bin/python -m pytest
+```
+
+The suite covers all 11 critical tests from `../SERVER.md` plus extra edge
+cases (direction aliases, last-move-wins, three-way ties, exhaustion vacating
+an origin, blocked-mover collisions, no-room spawn, API auth/shape checks).
+Tests pin deterministic config and drive the engine directly
+(`game.resolve_tick`) or via FastAPI's `TestClient` with the tick loop stubbed.
+
