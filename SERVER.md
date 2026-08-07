@@ -4,17 +4,9 @@ A simultaneous-turn, API-driven multiplayer arena on a 100×100 grid. The
 border is a wall; obstacle lines radiate from the walls toward the center.
 Players are single pixels. Each tick all submitted moves resolve at once.
 Collisions are decided by **life** (higher survives), where
-`life = 50 + 20·coins − motion_count` (players start with **base life
+`life = BASE_LIFE + 20·coins − motion_count` (players start with **base life
 `BASE_LIFE = 50`**). Coins spawn every 10 ticks (T=10, 20, 30, …) and grant
-+20 life — this is the core anti-stall mechanism (see D8/D15).
-
-> **⚠ Key inference (confirm):** the original spec said "player with *less
-> motions* survives." With coins adding +20 to a "life counter", I unify the
-> two as `life = BASE_LIFE + 20·coins − motion_count` (with `BASE_LIFE = 50`)
-> and resolve collisions by **higher life survives** (tie → all die). With zero
-> coins the common base cancels, so "higher life" reduces to "less motions" —
-> the original rule is the no-coin special case. Each directional move costs 1
-> life; each coin grants 20 life. See §6 and D15.
++20 life.
 
 ---
 
@@ -33,50 +25,53 @@ Directions → delta `(dx, dy)`:
 
 | direction    | aliases                 | dx | dy | cost |
 |--------------|-------------------------|----|----|------|
-| `up`         | `u`, `north`, `n`       |  0 | -1 | 1 life |
-| `down`       | `d`, `south`, `s`       |  0 | +1 | 1 life |
-| `left`       | `l`, `west`, `w`        | -1 |  0 | 1 life |
-| `right`      | `r`, `east`, `e`        | +1 |  0 | 1 life |
-| `upleft`     | `ul`, `northwest`, `nw` | -1 | -1 | 1 life |
-| `upright`    | `ur`, `northeast`, `ne` | +1 | -1 | 1 life |
-| `downleft`   | `dl`, `southwest`, `sw` | -1 | +1 | 1 life |
-| `downright`  | `dr`, `southeast`, `se` | +1 | +1 | 1 life |
+| `up`         | `u`, `north`, `n`       |  0 | -1 | 1 motion |
+| `down`       | `d`, `south`, `s`       |  0 | +1 | 1 motion |
+| `left`       | `l`, `west`, `w`        | -1 |  0 | 1 motion |
+| `right`      | `r`, `east`, `e`        | +1 |  0 | 1 motion |
+| `upleft`     | `ul`, `northwest`, `nw` | -1 | -1 | 1 motion |
+| `upright`    | `ur`, `northeast`, `ne` | +1 | -1 | 1 motion |
+| `downleft`   | `dl`, `southwest`, `sw` | -1 | +1 | 1 motion |
+| `downright`  | `dr`, `southeast`, `se` | +1 | +1 | 1 motion |
 | `stay`       | `none`, `hold`, `0`     |  0 |  0 | **0 (free)** |
 
 **`stay` is free** (change #1): it neither increments `motion_count` nor
 changes life — equivalent to not submitting a move. A directional move that is
-blocked by a wall still costs 1 life / +1 motion (D4, unchanged).
+blocked by a wall still costs  +1 motion.
 
 ---
 
 ## 2. World model
 
+The world is represented by a single 100x100 array, uint8. Each cell can be
+ - 0: free
+ - 1: occupied
+ - 2: player
+ - 3: coin
+
 ```
 GameState (singleton, in-memory)
 ├── config            # constants (sizes, intervals, coin ticks, flags)
 ├── tick              # current resolved time T (starts at 0)
-├── obstacles         # set<(x,y)>  AND numpy bool array obstacle_grid[100,100]
 ├── coins             # list<(x,y)> of uncollected coins currently on the board
 ├── players           # map<player_id, Player>
-├── name_to_id        # map<user_name, player_id>  (one life per name, D7)
+├── name_to_id        # map<user_name, player_id>
 ├── pending           # map<player_id, direction>  # queued moves for next tick
 ├── history           # list<Snapshot>             # per-tick state (D9)
-├── gen_seed          # obstacle-generation seed (logged for reproducibility)
-└── status            # "open" | "running" | "ended"
+└── gen_seed          # obstacle-generation seed (logged for reproducibility)
 
 Player
 ├── id, user_name, auth_key
 ├── position (x,y)
 ├── motion_count      # total directional moves processed (original spec metric)
-├── coins             # number of coins captured
+├── coins_captured    # number of coins captured
 ├── life              # = BASE_LIFE + 20*coins - motion_count  (50 + 20c - m)
 ├── alive (bool), died_at (tick | None)
 ├── joined_at (tick)
 ```
 
-`life` is derived from `coins` and `motion_count`, so we store the latter two
-and expose `life` in the API. Both `motion_count` (the original "history of
-total motions") and `life` are shown in the scoreboard.
+`life` is derived from `coins_captured` and `motion_count`, so we store the latter two
+and expose `life` in the API.
 
 ---
 
@@ -114,7 +109,6 @@ connected = (n == 1)
 corner-cutting restriction in the spec), so two free cells touching only at a
 corner *are* mutually reachable. Using the default 4-connectivity of
 `scipy.ndimage.label` would falsely flag diagonal-only links as isolated.
-(Configurable to 4-conn via `CONNECTIVITY=4` if you prefer conservative mazes.)
 
 If `n != 1` (isolated regions exist):
 1. **Retry** generation with a fresh random seed/params up to
@@ -130,9 +124,9 @@ round start, so every free cell is reachable from every other.
 
 ---
 
-## 4. Coins (change #5)
+## 4. Coins
 
-- `COIN_INTERVAL = 10` (configurable). When the tick advances **into** a value
+- `COIN_INTERVAL = 10`. When the tick advances **into** a value
   `T` with `T > 0 and T % COIN_INTERVAL == 0`, spawn one coin on a random
   **free** interior cell (non-obstacle, not currently occupied by a player, not
   already a coin). If no such cell exists, skip.
@@ -141,10 +135,8 @@ round start, so every free cell is reachable from every other.
   while at the cap.
 - **Capture**: after movement + collision resolution each tick, for each coin
   whose cell is occupied by exactly **one alive player**, that player captures
-  it: `coins += 1` (⇒ `life += 20`), coin removed. If the cell is empty or was
+  it: `coins += 1`, coin removed. If the cell is empty or was
   a collision site with no single survivor (tie → all dead), the coin remains.
-  (See D11 — coin capture happens *after* collision, so the +20 helps in
-  *future* collisions, not the one where you grab it.)
 
 ---
 
@@ -155,14 +147,12 @@ submitted during the window after `T` are queued in `pending` and all resolve
 at the tick boundary, producing state `T+1`.
 
 The tick advances on a **fixed timer only**: every `TICK_INTERVAL` seconds
-(default 2.0 s). There is no "all-ready" early trigger — the cadence is
-predictable regardless of how many players have submitted.
+(default 2.0 s).
 
 Players who submit nothing (or submit `stay`) stay put for free (no motion,
 no life change). Submitting multiple `/move` calls in one tick: **the last one
 wins**; only **one** motion is counted for that tick (and only if the final
-direction is not `stay`). `/state` returns the latest resolved state `T`
-(optional `?tick=T` for history, D9).
+direction is not `stay`). `/state` returns the latest resolved state `T`.
 
 After each resolution, if the new `tick` is a coin tick (`tick > 0 and
 tick % COIN_INTERVAL == 0`) and below `MAX_COINS`, spawn a coin (§4).
@@ -253,12 +243,6 @@ Properties:
   processed (up/down/left/right/diagonal), whether or not it displaced the
   player. Blocked moves count. `stay` and "no submission" do **not** count.
 - `coins` = coins captured.
-- `life = BASE_LIFE + 20·coins − motion_count` with `BASE_LIFE = 50`
-  (starts 50; move −1; coin +20).
-- **Collision metric = `life`** (higher survives; tie → all die). With no
-  coins, `life = 50 − motion_count`; the common constant 50 cancels in any
-  pairwise comparison, so "higher life" = "less motions" ⇒ the original spec
-  rule is the zero-coin special case.
 - Both `motion_count` (original history) and `life` are frozen at death and
   shown in the scoreboard.
 
@@ -276,18 +260,7 @@ Response 200:
   "auth_key": "rk7...",
   "player_id": 3,
   "user_name": "alice",
-  "position": [42, 17],
-  "life": 50,
-  "motion_count": 0,
-  "coins": 0,
-  "tick": 0,
-  "round_id": 1,
-  "board": { "width": 100, "height": 100,
-             "obstacles": [[0,0],[0,1], "..."],       // border + radial lines
-             "gen_seed": 12345 },
-  "coins_on_board": [],
-  "config": { "tick_interval": 2.0, "max_players": 1000,
-              "coin_interval": 10, "coin_value": 20, "max_coins": 10, "shrink": false }
+  "current_position": [42, 17],
 }
 ```
 Errors: `NO_ROOM`, `ALREADY_JOINED`, `INVALID_NAME`.
@@ -298,25 +271,23 @@ Response 200:
 ```json
 {
   "ok": true,
-  "queued_for_tick": 5,
-  "current_position": [42, 17],
-  "motion_count": 3,
-  "coins": 0,
-  "life": 47,
-  "alive": true
 }
 ```
-Errors: `INVALID_AUTH`, `DEAD`, `INVALID_DIRECTION`, `ROUND_ENDED`.
-(`stay` is accepted and is free; default overwrites earlier moves in the same
-tick — see D5.)
+Errors: `INVALID_AUTH`, `DEAD`, `INVALID_DIRECTION`,
 
-### `GET /state?auth_key=KEY[&tick=T]`
+### `GET /current_tick?auth_key=KEY`
 Response 200:
 ```json
 {
-  "tick": 4,
-  "round_id": 1,
-  "status": "running",
+  "current_tick": 4,
+}
+Errors: `INVALID_AUTH`
+
+### `GET /state?auth_key=KEY`
+Response 200:
+```json
+{
+  "current_tick": 4,
   "you": { "id": 3, "position": [42,17], "motion_count": 3,
            "coins": 0, "life": 47, "alive": true,
            "has_pending_move": true, "pending_direction": "up" },
@@ -324,16 +295,11 @@ Response 200:
     {"id": 1, "name": "bob",  "position": [10,10], "motion_count": 2,
      "coins": 1, "life": 68, "alive": true}
   ],
-  "coins": [[50, 50]],
-  "obstacles": [[0,0], "..."],
-  "scoreboard": [
-    {"name": "bob",  "alive": true,  "motion_count": 2, "coins": 1, "life": 68},
-    {"name": "dave", "alive": false, "motion_count": 5, "coins": 0, "life": 45, "died_at": 3}
-  ],
-  "config": { "tick_interval": 2.0, "coin_interval": 10, "coin_value": 20, "max_coins": 10, "shrink": false }
+  "coins_location": [[50, 50]],
+  "obstacles_location": [[0,0], "..."],
 }
 ```
-Errors: `INVALID_AUTH`, `NO_SUCH_TICK`.
+Errors: `INVALID_AUTH`
 
 ---
 
@@ -343,59 +309,18 @@ Errors: `INVALID_AUTH`, `NO_SUCH_TICK`.
   and append to `pending` under a lock.
 - `pending` writes are mutex-guarded; the tick loop swaps it atomically to a
   local map before resolving, so submission and resolution never race.
-- The tick loop is driven by a **fixed timer only** (no "all-ready" early
-  trigger): every `TICK_INTERVAL` seconds it advances. Move submission is
+- The tick loop is driven by a **fixed timer only**: every `TICK_INTERVAL` seconds it advances. Move submission is
   best-effort within the window; the last move a player submits before the
   boundary is the one resolved. The tick loop waits on a timer condition; no
   early wake-up.
-- All decisions are deterministic given the same `pending` set; ties broken by
-  rule (D3), not submission order.
 
 ---
 
-## 10. Design decisions
-
-Defaults are spec-faithful + your six changes; flags enable variants.
-
-- **D1 — Win condition.** Default: informal "last alive wins"; the arena runs
-  **endlessly** (change #6 acknowledges infinite stalemate is possible). 
-- **D3 — Tie on life.** Default: all tied players die (cell emptied). 
-- **D4 — Blocked moves count.** Default: **yes** — a wall-bump still costs 1
-  life / +1 motion. 
-- **D5 — `stay` & multiple moves (change #1).** Default: `stay` is valid and
-  **free** (no motion, no life cost), identical to not submitting; later
-  `/move` in a tick overwrites earlier (last wins, one motion max). 
-- **D6 — Endless (change #6).** Default: no auto-end, no auto-restart.
-- **D7 — One life per name.** Default: a `user_name` joins once per round;
-  after death it can't rejoin this round (prevents count/life-reset abuse).
-- **D8 — Anti-stall.** **Coins are the built-in anti-stall**: every 10 ticks
-  a coin appears; grabbing it gives +20 life (e.g. a coin-holder at ~70
-  beats a pure camper at 50). So sitting still forever is no longer dominant.
-  `SHRINK` and `MUST_MOVE`
-  remain available as optional extra knobs (default **off**).
-- **D9 — History.** Default: keep a per-tick snapshot for `?tick=T` and
-  replays (~10 KB/tick). 
-- **D10 — Late joining.** Default: allowed until `MAX_PLAYERS`; late joiners
-  start at life 50-T (where T is the tick number).
-- **D11 — Coin capture timing.** Default: coin captured *after*
-  collision resolution, by the single alive occupant of its cell. So the +20
-  helps future collisions, and a contested coin is risky.
-- **D12 — Obstacle lines (confirm).** Default: `NUM_LINES=16`, length
-  `[15,45]`, four sides, stop short of center.
-- **D13 — Connectivity (confirm).** Default: 8-connectivity (diagonal moves
-  legal), retry up to 200 gens, carve fallback if needed.
-- **D14 — Border wall.** Always on (change #2); not configurable.
-- **D15 — Life metric (confirmed).** `life = BASE_LIFE + 20·coins − motion_count`
-  with `BASE_LIFE = 50`; higher survives; tie → all die; each move −1, each
-  coin +20. With zero coins the common base 50 cancels, so "higher life"
-  reduces to "less motions" — the original spec rule.
----
-
-## 11. Recommended stack & layout
+## 10. Recommended stack & layout
 
 - **Stack:** Python 3 + FastAPI + uvicorn, **numpy + scipy** (connectivity),
   in-memory, no DB. Single worker; tick loop as an asyncio task.
-- Process target: <1000 players, no horizontal scaling needed.
+- Process target: <100 players
 
 ```
 server/
@@ -428,25 +353,3 @@ Critical unit tests (must pass before shipping):
    capturing one → `coins+1`, `life+20`, coin removed; post-collision capture
    only (contested coin not duplicated).
 9. Late joiner (life 50) vs coin-holder (life 70) collide → coin-holder lives.
-
----
-
-## 12. Confirmed decisions
-
-All design questions are settled (see §10). Summary of the final spec:
-
-- **Life** = `BASE_LIFE + 20·coins − motion_count` with `BASE_LIFE = 50`;
-  **higher survives**; tie → all die (D15, D3). Each directional move −1; each
-  coin +20. Players start at life 50.
-- **`stay` is free**; no submission = free stay (D5).
-- **Blocked moves still count** (D4).
-- **Border wall** + 16 radial lines, len 15–45 (D12); 8-connectivity check via
-  `scipy.ndimage.label` with retry + carve fallback (D13).
-- **Coins every 10 ticks** (T=10, 20, 30, …), captured *after* collision by
-  the single alive occupant, `MAX_COINS=10` cap (D11, D8).
-- **Endless** round, one life per name (D6, D7).
-- **Stack:** Python 3 + FastAPI + uvicorn + numpy + scipy.
-- **`/state` exposes** opponents' `life` and `motion_count` (needed for
-  strategy).
-
-Implementation follows in `server/`.
