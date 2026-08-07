@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Maze Game — Spectator</title>
+<link rel="stylesheet" href="/gui/static/style.css" />
+</head>
+<body>
+<header>
+  <h1>🌐 Maze Game — Spectator</h1>
+  <div id="status">
+    <span id="conn">connecting…</span>
+    &middot; tick <span id="tick">—</span>
+    &middot; <span id="count">—</span> alive
+  </div>
+</header>
+
+<main>
+  <section id="board-wrap">
+    <canvas id="board" width="900" height="900" tabindex="0"
+            aria-label="Maze board, spectator view."></canvas>
+    <div id="hud"></div>
+  </section>
+
+  <aside id="panel">
+    <div class="card">
+      <h2>Spectator</h2>
+      <label>Server URL
+        <input id="base-url" placeholder="http://localhost:8000" />
+      </label>
+      <label>Viewer key
+        <input id="viewer-key" placeholder="MG_VIEWER_KEY" />
+      </label>
+      <div class="row">
+        <button id="btn-connect">Connect</button>
+        <button id="btn-disconnect" disabled>Stop</button>
+      </div>
+      <p class="hint">Read-only board via <code>/view</code>. No player auth needed.</p>
+    </div>
+
+    <div class="card">
+      <h2>Players <span id="pcount" class="muted"></span></h2>
+      <ul id="players"></ul>
+    </div>
+
+    <div class="card">
+      <h2>Coins <span id="ccount" class="muted"></span></h2>
+      <ul id="coins"></ul>
+    </div>
+
+    <div class="card">
+      <h2>Legend</h2>
+      <ul class="legend">
+        <li><span class="dot" style="background:#2a323c"></span> obstacle / wall</li>
+        <li><span class="tri"></span> player (random color)</li>
+        <li><span class="dot" style="background:#ffd33d"></span> coin (+20 life)</li>
+      </ul>
+      <p class="hint">Each tick all moves resolve at once; collisions decided by life (higher wins, tie → both die).</p>
+    </div>
+  </aside>
+</main>
+
+<div id="toast" class="toast hidden"></div>
+<script src="/gui/static/app.js"></script>
+</body>
+</html>

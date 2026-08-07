@@ -328,6 +328,35 @@ excludes all dead players (dead players never appear anywhere in the
 response). `you.alive` reflects your own liveness.
 Errors: `INVALID_AUTH`
 
+### `GET /view?viewer_key=KEY`  (spectator, read-only)
+Full public board state gated by a shared spectator secret (`MG_VIEWER_KEY`),
+not a per-player `auth_key`. Used by the web GUI / spectators. Lists **all
+alive players** (no `you` filter, since there is no caller identity).
+Response 200:
+```json
+{
+  "current_tick": 4,
+  "players": [
+    {"id": 3, "name": "alice", "current_position": [42,17], "motion_count": 3,
+     "coins_captured": 0, "life": 47, "alive": true},
+    {"id": 1, "name": "bob",  "current_position": [10,10], "motion_count": 2,
+     "coins_captured": 1, "life": 68, "alive": true}
+  ],
+  "coins_uncollected_location": [[50, 50]],
+  "obstacles_location": [[0,0], "..."]
+}
+```
+Errors: `INVALID_VIEWER_KEY` (wrong/missing key, 401), `VIEWER_DISABLED`
+(404, only when no key is configured). If `MG_VIEWER_KEY` is unset at startup,
+the server auto-generates one and logs it.
+
+### `GET /view_tick?viewer_key=KEY`  (spectator, lightweight)
+Response 200: `{"current_tick": 4}` — cheap polling for spectators.
+Errors: `INVALID_VIEWER_KEY`, `VIEWER_DISABLED`.
+
+### `GET /gui`
+The web GUI (`server/gui/index.html`); static assets at `/gui/static/*`.
+
 ---
 
 ## 9. Concurrency & fairness

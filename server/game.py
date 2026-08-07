@@ -155,6 +155,37 @@ class GameState:
         return pd
 
     # --- reads for /state and /current_tick -------------------------------
+    def _public_players(self):
+        """All alive players as public dicts (no auth secrets)."""
+        out = []
+        for op in self.players.values():
+            if not op.alive:
+                continue
+            out.append({
+                "id": op.id,
+                "name": op.user_name,
+                "current_position": [op.position[0], op.position[1]],
+                "motion_count": op.motion_count,
+                "coins_captured": op.coins_captured,
+                "life": op.life,
+                "alive": True,
+            })
+        return out
+
+    def state_public(self):
+        """Full public board state (no per-player auth_key required).
+
+        Used by the spectator/GUI endpoint. Lists every alive player (the
+        per-player /state excludes `you` and the dead); here there is no `you`,
+        so all alive players are returned.
+        """
+        return {
+            "current_tick": self.tick,
+            "players": self._public_players(),
+            "coins_uncollected_location": [[x, y] for (x, y) in self.coins_uncollected],
+            "obstacles_location": self.obstacles_location,
+        }
+
     def current_tick_for(self, auth_key):
         if self.auth_to_id.get(auth_key) is None:
             raise api.GameError(api.INVALID_AUTH, "invalid auth_key", 401)

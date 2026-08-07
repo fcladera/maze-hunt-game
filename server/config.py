@@ -37,6 +37,11 @@ MAX_GEN_ATTEMPTS = _int("MG_MAX_GEN_ATTEMPTS", 200)
 # Players
 MAX_PLAYERS = _int("MG_MAX_PLAYERS", 100)
 
+# Shared secret for read-only spectator access to the public board state.
+# When set, /view?viewer_key=... returns all alive players (no per-player
+# auth_key needed). When unset, viewer access is disabled.
+VIEWER_KEY = os.environ.get("MG_VIEWER_KEY", "")
+
 # Optional fixed obstacle-generation seed (for reproducibility).
 _raw_seed = os.environ.get("MG_GEN_SEED")
 GEN_SEED = None

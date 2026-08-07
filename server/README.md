@@ -12,6 +12,11 @@ python3 -m venv .venv
 .venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
+Then open the web GUI at <http://localhost:8000/gui>.
+If `MG_VIEWER_KEY` is not set, the server logs an auto-generated spectator
+key on startup — paste it into the GUI's "Viewer key" field to see the
+board (or set `MG_VIEWER_KEY` to pin it).
+
 ## Endpoints
 
 | Method | Path                          | Body / query                         |
@@ -21,6 +26,9 @@ python3 -m venv .venv
 | GET    | `/current_tick?auth_key=KEY`  |                                      |
 | GET    | `/state?auth_key=KEY`         |                                      |
 | GET    | `/health`                     |                                      |
+| GET    | `/view?viewer_key=KEY`        | read-only full board (spectator)     |
+| GET    | `/view_tick?viewer_key=KEY`   | read-only tick counter               |
+| GET    | `/gui`                        | web GUI (`index.html`)               |
 
 Errors are non-2xx with `{"error": "...", "code": "..."}`.
 
@@ -40,6 +48,7 @@ Errors are non-2xx with `{"error": "...", "code": "..."}`.
 | `MG_MAX_GEN_ATTEMPTS`| 200    | connectivity retry attempts          |
 | `MG_MAX_PLAYERS`    | 100     | max alive players                    |
 | `MG_GEN_SEED`       | random  | fixed obstacle-generation seed      |
+| `MG_VIEWER_KEY`     | auto    | spectator secret for `/view` (auto-generated if unset, logged on startup) |
 
 ## Layout
 
@@ -50,7 +59,8 @@ world.py    border + radial-line generation, 8-conn connectivity, carve
 coins.py    coin spawn logic
 config.py   constants + env overrides
 api.py      pydantic request schemas + error codes
-tests/      pytest suite (world, tick, collisions, coins, api)
+gui/        web GUI (index.html, style.css, app.js) served at /gui
+tests/      pytest suite (world, tick, collisions, coins, api, view)
 ```
 
 ## Tests
@@ -66,4 +76,17 @@ cases (direction aliases, last-move-wins, three-way ties, exhaustion vacating
 an origin, blocked-mover collisions, no-room spawn, API auth/shape checks).
 Tests pin deterministic config and drive the engine directly
 (`game.resolve_tick`) or via FastAPI's `TestClient` with the tick loop stubbed.
+
+## Web GUI
+
+`/gui` serves a single-page **spectator** client (`server/gui/index.html`)
+that renders the 100x100 board on a canvas by polling
+`/view?viewer_key=...` (read-only, all alive players / coins / obstacles, no
+per-player auth needed). Players are drawn as bigger triangles, each in a
+random color; coins pulse gold; a colored life bar sits under each player.
+
+Open <http://localhost:8000/gui>, enter the server URL + viewer key, connect.
+
+> Note: the GUI is view-only. To actually play, use the `/join` + `/move`
+> endpoints directly (e.g. via a bot/client).
 
