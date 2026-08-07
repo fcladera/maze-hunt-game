@@ -80,7 +80,7 @@ Tests pin deterministic config and drive the engine directly
 ## Web GUI
 
 `/gui` serves a single-page **spectator** client (`server/gui/index.html`)
-that renders the 100x100 board on a canvas by polling
+that renders the 80x80 board on a canvas by polling
 `/view?viewer_key=...` (read-only, all alive players / coins / obstacles, no
 per-player auth needed). Players are drawn as bigger triangles, each in a
 random color; coins pulse gold; a colored life bar sits under each player.

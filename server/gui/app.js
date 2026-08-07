@@ -3,7 +3,7 @@
 // Polls /view?viewer_key=... and renders the board. No manual control.
 
 const $ = (id) => document.getElementById(id);
-const GRID = 100; // grid edge (matches server config.GRID_SIZE)
+const GRID = 80; // grid edge (matches server config.GRID_SIZE)
 
 const state = {
   base: "",
