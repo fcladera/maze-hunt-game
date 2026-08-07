@@ -40,7 +40,7 @@ Errors are non-2xx with `{"error": "...", "code": "..."}`.
 | `MG_BASE_LIFE`      | 50      | starting life                        |
 | `MG_COIN_LIFE_BONUS`| 20      | life granted per captured coin       |
 | `MG_COIN_INTERVAL`  | 10      | spawn a coin every N ticks           |
-| `MG_MAX_COINS`      | 10      | cap on simultaneous coins            |
+| `MG_MAX_COINS`      | 15      | cap on simultaneous coins            |
 | `MG_TICK_INTERVAL`  | 2.0     | seconds per tick                     |
 | `MG_NUM_LINES`      | 16      | radial obstacle lines                |
 | `MG_MIN_LINE_LEN`   | 12      | min line length                      |

@@ -138,7 +138,7 @@ round start, so every free cell is reachable from every other.
   **free** interior cell (non-obstacle, not currently occupied by a player, not
   already a coin). If no such cell exists, skip.
 - A coin persists until captured. Coins accumulate over time; to bound board
-  clutter, `MAX_COINS` (default 10) caps simultaneous coins — skip spawning
+  clutter, `MAX_COINS` (default 15) caps simultaneous coins — skip spawning
   while at the cap.
 - **Capture**: after movement + collision resolution each tick, for each coin
   whose cell is occupied by exactly **one alive player**, that player captures
