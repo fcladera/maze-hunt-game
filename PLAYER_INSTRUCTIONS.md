@@ -9,9 +9,9 @@ with the **higher life** survives; the others die. Your goal: **stay alive**
 
 Two numbers define you:
 - **motion_count** — how many directional moves you've made (your "history").
-- **life** = `20 × coins − motion_count`. Each move costs 1 life; each coin
-  gives +20 life. **Higher life wins collisions.** So moves make you weaker,
-  coins make you much stronger.
+- **life** = `50 + 20 × coins − motion_count`. You start at **life 50**. Each
+  move costs 1 life; each coin gives +20 life. **Higher life wins collisions.**
+  So moves make you weaker, coins make you much stronger.
 
 The game is designed so that **grabbing coins is the key to winning**: a
 coin (+20 life) lets you beat almost any camper. But every move you make
@@ -32,7 +32,7 @@ Response:
   "auth_key": "rk7abc...",
   "player_id": 3,
   "position": [42, 17],
-  "life": 0,
+  "life": 50,
   "motion_count": 0,
   "coins": 0,
   "tick": 0,
@@ -44,7 +44,7 @@ Response:
 ```
 
 - Save `auth_key` — it identifies you for every later call. Keep it secret.
-- You spawn at a random free cell with **life = 0**.
+- You spawn at a random free cell with **life = 50**.
 - One life per name per round: once you die, that name can't rejoin this round.
 - The board is always fully connected — every free cell is reachable (the
   server guarantees this at generation time).
@@ -110,8 +110,8 @@ curl -X POST http://SERVER/move -H 'content-type: application/json' \
 
 ## 5. Tick timing
 
-The server advances the tick when **either** all alive players have moved **or**
-a short interval (default 2 s) elapses. So:
+The server advances the tick on a **fixed timer** every `TICK_INTERVAL`
+(default 2 s), regardless of how many players have submitted. So:
 - Your move only takes effect at the **next** tick. `/state` shows the last
   resolved tick, not your pending move.
 - To act each tick, send a `/move` once per tick; you'll see the result in the
@@ -141,7 +141,7 @@ current life.
   they collide first (by current life) and only the single survivor claims the
   +20. Don't brawl over a coin unless you have the higher life.
 - A coin's +20 is enormous — it's worth 20 moves. A player with one coin
-  (life ~20) beats almost any non-coin player.
+  (life ~70) beats a pure non-coin camper (life 50).
 
 ## 8. Strategy
 
@@ -154,14 +154,14 @@ current life.
 - **Don't ram a higher-life player.** If an opponent has higher life than you,
   moving onto them means you die. Only attack players whose life is **lower**
   than yours.
-- **Campers are now beatable.** A player who never moves has life 0. A single
-  coin gives you life 20, so you can freely run over a life-0 camper. Pure
+- **Campers are now beatable.** A player who never moves has life 50. A
+  single coin gives you life ~70, so you can run over a life-50 camper. Pure
   camping is no longer a safe strategy once coins are in play — go get them.
 - **Bait opponents into moving.** Every move they make lowers their life by
   1. Pressure and positioning matter; make them spend life while you save
   yours.
-- **Late joiners start at life 0** — weak until they grab a coin. Don't fear
-  them unless they're heading for a coin.
+- **Late joiners start at life 50** — average, until they grab a coin. Don't
+  fear them unless they're heading for a coin.
 - **Swaps are safe.** If you move to an opponent's cell while they move to
   yours, you land on different cells — **no collision**; you pass through.
   Useful to escape without risking a fight.
@@ -179,25 +179,25 @@ current life.
 
 ## 9. Worked examples
 
-1. **You win a race by life.** You (life 5) and Bob (life 2) both move into
-   empty cell C. After your moves: you life 4, Bob life 1. Both on C → higher
+1. **You win a race by life.** You (life 55) and Bob (life 52) both move into
+   empty cell C. After your moves: you life 54, Bob life 51. Both on C → higher
    wins → **you survive, Bob dies**.
-2. **A coin changes everything.** You (life 4) hold nothing; Cara (life 22,
-   one coin) moves onto your cell while you stay. Cara life 21 vs you life 4 →
-   **Cara survives, you die.** Reverse it: if *you* had the coin (life 24) and
-   Cara (life 2) rammed you → you 24 vs Cara 1 → **you survive, Cara dies**.
-3. **Campers lose to coin-holders.** Dave never moves (life 0). You grabbed a
-   coin earlier (life 20) and move onto Dave's cell: you 19 vs Dave 0 → **Dave
-   dies, you survive** (at life 19). Pure camping is dead once coins appear.
-4. **Tie kills both.** You (life 4) and Eve (life 4) both move into C → both
-   become life 3 → tie → **both die**, C is left empty.
-5. **Contested coin.** A coin sits at C. You (life 6) and Frank (life 8) both
-   move onto C. Collisions resolve first: Frank 7 vs you 5 → **Frank survives,
-   you die**; Frank then captures the coin (life 27). Don't contest a coin
+2. **A coin changes everything.** You (life 54) hold nothing; Cara (life 72,
+   one coin) moves onto your cell while you stay. Cara life 71 vs you life 54 →
+   **Cara survives, you die.** Reverse it: if *you* had the coin (life 74) and
+   Cara (life 52) rammed you → you 74 vs Cara 51 → **you survive, Cara dies**.
+3. **Campers lose to coin-holders.** Dave never moves (life 50). You grabbed a
+   coin earlier (life 70) and move onto Dave's cell: you 69 vs Dave 50 → **Dave
+   dies, you survive** (at life 69). Pure camping is dead once coins appear.
+4. **Tie kills both.** You (life 54) and Eve (life 54) both move into C → both
+   become life 53 → tie → **both die**, C is left empty.
+5. **Contested coin.** A coin sits at C. You (life 56) and Frank (life 58) both
+   move onto C. Collisions resolve first: Frank 57 vs you 55 → **Frank survives,
+   you die**; Frank then captures the coin (life 77). Don't contest a coin
    against higher life — let them take it and outmaneuver them later, or grab
    it when uncontested.
-6. **Wall bump.** You (life 5) move `up` into a wall → you stay put, life
-   becomes 4 (motion_count +1). If nobody targets your cell, you're fine but
+6. **Wall bump.** You (life 55) move `up` into a wall → you stay put, life
+   becomes 54 (motion_count +1). If nobody targets your cell, you're fine but
    you've spent 1 life for nothing.
 
 ## 10. Quick reference
