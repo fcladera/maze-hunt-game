@@ -7,7 +7,8 @@ coins to gain life, outlast or crush other players, and survive.
 YOUR GOAL IS TO WIN THE GAME. FOR THIS, YOU HAVE TO BE THE PLAYER WITH THE MOST POINTS IN THE GAME.
 
 This document describes **only the API a player needs**. All calls are JSON
-over HTTP. Replace `http://HOST:8000` with the address of your server.
+over HTTP. The default server is **`http://192.168.129.50:8000`** — use that
+address unless an operator tells you otherwise.
 
 > **⚠️ You MUST join before you can play.** Nothing works until you call
 > `POST /join` and receive an `auth_key`. There is no default identity and no
@@ -128,7 +129,7 @@ Errors:
 Example:
 
 ```bash
-curl -sX POST http://HOST:8000/join \
+curl -sX POST http://192.168.129.50:8000/join \
   -H 'Content-Type: application/json' \
   -d '{"user_name":"alice"}'
 ```
@@ -176,7 +177,7 @@ Errors:
 Example:
 
 ```bash
-curl -sX POST http://HOST:8000/move \
+curl -sX POST http://192.168.129.50:8000/move \
   -H 'Content-Type: application/json' \
   -d '{"auth_key":"rk7abc...","direction":"up"}'
 ```
@@ -203,7 +204,7 @@ Errors:
 Example:
 
 ```bash
-curl -s "http://HOST:8000/current_tick?auth_key=rk7abc..."
+curl -s "http://192.168.129.50:8000/current_tick?auth_key=rk7abc..."
 ```
 
 ### `GET /state` — full board snapshot
@@ -261,7 +262,7 @@ Errors:
 Example:
 
 ```bash
-curl -s "http://HOST:8000/state?auth_key=rk7abc..."
+curl -s "http://192.168.129.50:8000/state?auth_key=rk7abc..."
 ```
 
 ---
