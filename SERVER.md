@@ -4,7 +4,7 @@ A simultaneous-turn, API-driven multiplayer arena on a 100×100 grid. The
 border is a wall; obstacle lines radiate from the walls toward the center.
 Players are single pixels. Each tick all submitted moves resolve at once.
 Collisions are decided by **life** (higher survives), where
-`life = BASE_LIFE + 20·coins − motion_count` (players start with **base life
+`life = BASE_LIFE + 20·coins_captured − motion_count` (players start with **base life
 `BASE_LIFE = 50`**). Coins spawn every 10 ticks (T=10, 20, 30, …) and grant
 +20 life.
 
@@ -17,7 +17,8 @@ Collisions are decided by **life** (higher survives), where
 - **Border is always wall**: every cell with `x∈{0,99}` or `y∈{0,99}` is an
   obstacle. Playable interior is `x,y ∈ 1..98` (98×98 = 9604 cells).
 - Interior cells are: **empty**, **obstacle** (wall), a **player**, or a
-  **coin**. After tick resolution no two players share a cell.
+  **coin**. After tick resolution no two players share a cell. If there is a
+player collision, only the player who lives keeps the cell.
 - Out-of-bounds is wall (already covered by the border, but the rule is
   general).
 
@@ -44,8 +45,8 @@ blocked by a wall still costs  +1 motion.
 ## 2. World model
 
 The world is represented by a single 100x100 array, uint8. Each cell can be
- - 0: free
- - 1: occupied
+ - 0: empty
+ - 1: obstacle
  - 2: player
  - 3: coin
 
@@ -53,11 +54,11 @@ The world is represented by a single 100x100 array, uint8. Each cell can be
 GameState (singleton, in-memory)
 ├── config            # constants (sizes, intervals, coin ticks, flags)
 ├── tick              # current resolved time T (starts at 0)
-├── coins             # list<(x,y)> of uncollected coins currently on the board
+├── coins_uncollected # list<(x,y)> of uncollected coins currently on the board
 ├── players           # map<player_id, Player>
 ├── name_to_id        # map<user_name, player_id>
 ├── pending           # map<player_id, direction>  # queued moves for next tick
-├── history           # list<Snapshot>             # per-tick state (D9)
+├── history           # list<Snapshot>             # per-tick state 
 └── gen_seed          # obstacle-generation seed (logged for reproducibility)
 
 Player
@@ -65,13 +66,12 @@ Player
 ├── position (x,y)
 ├── motion_count      # total directional moves processed (original spec metric)
 ├── coins_captured    # number of coins captured
-├── life              # = BASE_LIFE + 20*coins - motion_count  (50 + 20c - m)
 ├── alive (bool), died_at (tick | None)
 ├── joined_at (tick)
 ```
 
-`life` is derived from `coins_captured` and `motion_count`, so we store the latter two
-and expose `life` in the API.
+`life` is computed from `coins_captured` and `motion_count`, so we store the latter two.
+
 
 ---
 
@@ -95,8 +95,8 @@ middle" is interpreted as *up to the middle* (lines reach near it, not past
 it); the open center keeps corridors connected.
 
 ### 3.3 Connectivity check (change #4)
-After placing border + lines, build a `100×100` numpy array `obstacle_grid`
-(`True` = obstacle). Compute the free mask `~obstacle_grid` and run:
+After creating the uint8 map array and placing the border + lines, create a
+boolean obstacle_grid array (where map == 1). Then run:
 
 ```python
 from scipy.ndimage import label
@@ -135,7 +135,7 @@ round start, so every free cell is reachable from every other.
   while at the cap.
 - **Capture**: after movement + collision resolution each tick, for each coin
   whose cell is occupied by exactly **one alive player**, that player captures
-  it: `coins += 1`, coin removed. If the cell is empty or was
+  it: `coins_captured += 1`, coin removed. If the cell is empty or was
   a collision site with no single survivor (tie → all dead), the coin remains.
 
 ---
@@ -173,7 +173,7 @@ resolve_tick():
           targets[p.id] = p.position              # no motion_count++, no life--
           continue
       p.motion_count += 1                        # a directional move always counts
-      # life = BASE_LIFE + 20*coins - motion_count  => -1 from this move
+      # life = BASE_LIFE + 20*coins_captured - motion_count  => -1 from this move
       (nx, ny) = p.position + delta(d)
       if not in_bounds(nx,ny) or obstacle_grid[nx,ny]:
           targets[p.id] = p.position              # blocked -> stay (but counted, D4)
@@ -198,7 +198,7 @@ resolve_tick():
           if len(winners) == 1:
               survivors.add(winners[0])
               deaths += [pid for pid in pids if pid != winners[0]]
-          else:                                  # tie at the max life -> all die (D3)
+          else:                                  # tie at the max life -> all die 
               deaths += pids
 
   # 4. Apply deaths and movement.
@@ -209,20 +209,19 @@ resolve_tick():
       players[pid].position = targets[pid]
 
   # 5. Coin capture (after collisions).
-  for coin in list(game.coins):
+  for coin in list(game.coins_uncollected):
       occupants = [pid for pid in survivors if targets[pid] == coin]
       if len(occupants) == 1:                    # exactly one alive player on the coin
           pid = occupants[0]
-          players[pid].coins += 1                # => life += 20
-          game.coins.remove(coin)
+          players[pid].coins_captured += 1                # => life += 20
+          game.coins_uncollected.remove(coin)
 
   # 6. Advance clock, spawn coins, snapshot.
   game.tick = T + 1
-  if game.tick > 0 and game.tick % COIN_INTERVAL == 0 and len(game.coins) < MAX_COINS:
+  if game.tick > 0 and game.tick % COIN_INTERVAL == 0 and len(game.coins_uncollected) < MAX_COINS:
       spawn_coin()                               # random free cell, §4
   history.append(snapshot())
   pending.clear()
-  check_round_end()                              # D6 (endless by default)
 ```
 
 Properties:
@@ -231,8 +230,8 @@ Properties:
   collision; they pass through each other.
 - **Mover vs stayer collide** on the stayer's cell, resolved by life.
 - **Dead players vacate their origin**, so others may move into it.
-- **Blocked moves still cost life/motion** (D4).
-- **Coin capture is post-collision** (D11): grabbing a contested coin risks
+- **Blocked moves still cost life/motion**.
+- **Coin capture is post-collision**: grabbing a contested coin risks
   dying before you can claim it; the +20 aids future fights.
 
 ---
@@ -242,9 +241,8 @@ Properties:
 - `motion_count` = number of ticks in which a **directional** move was
   processed (up/down/left/right/diagonal), whether or not it displaced the
   player. Blocked moves count. `stay` and "no submission" do **not** count.
-- `coins` = coins captured.
-- Both `motion_count` (original history) and `life` are frozen at death and
-  shown in the scoreboard.
+- Both `motion_count` (original history) and `life` are frozen at death.
+- If a player reaches 0 life, it is also dead.
 
 ---
 
@@ -288,14 +286,14 @@ Response 200:
 ```json
 {
   "current_tick": 4,
-  "you": { "id": 3, "position": [42,17], "motion_count": 3,
-           "coins": 0, "life": 47, "alive": true,
+  "you": { "id": 3, "current_position": [42,17], "motion_count": 3,
+           "coins_captured": 0, "life": 47, "alive": true,
            "has_pending_move": true, "pending_direction": "up" },
   "players": [
-    {"id": 1, "name": "bob",  "position": [10,10], "motion_count": 2,
-     "coins": 1, "life": 68, "alive": true}
+    {"id": 1, "name": "bob",  "current_position": [10,10], "motion_count": 2,
+     "coins_captured": 1, "life": 68, "alive": true}
   ],
-  "coins_location": [[50, 50]],
+  "coins_uncollected_location": [[50, 50]],
   "obstacles_location": [[0,0], "..."],
 }
 ```
@@ -328,7 +326,7 @@ server/
 ├── game.py          # GameState, Player, tick loop, collision/coin resolver
 ├── world.py         # border + radial-line generation, connectivity check, spawn
 ├── coins.py         # coin spawn + capture logic (small; could fold into game.py)
-├── config.py        # constants + env overrides (D1–D15)
+├── config.py        # constants + env overrides
 ├── api.py           # request/response schemas (pydantic), error codes
 └── tests/
     ├── test_world.py        # border, lines, 8-conn connectivity, carve fallback
@@ -350,6 +348,6 @@ Critical unit tests (must pass before shipping):
    unchanged.
 7. Dead player's `/move` → `DEAD`, no state change.
 8. Coins spawn every 10 ticks (T=10,20,30,…) on a free cell up to `MAX_COINS`;
-   capturing one → `coins+1`, `life+20`, coin removed; post-collision capture
+   capturing one → `coins_captured+1`, coin removed; post-collision capture
    only (contested coin not duplicated).
 9. Late joiner (life 50) vs coin-holder (life 70) collide → coin-holder lives.
