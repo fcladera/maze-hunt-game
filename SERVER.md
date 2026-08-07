@@ -17,8 +17,11 @@ Collisions are decided by **life** (higher survives), where
 - **Border is always wall**: every cell with `x∈{0,99}` or `y∈{0,99}` is an
   obstacle. Playable interior is `x,y ∈ 1..98` (98×98 = 9604 cells).
 - Interior cells are: **empty**, **obstacle** (wall), a **player**, or a
-  **coin**. After tick resolution no two players share a cell. If there is a
-player collision, only the player who lives keeps the cell.
+  **coin**. After tick resolution no two *alive* players share a cell. When
+  several players collide on a cell, only the highest-life survivor occupies it
+  and the losers die; dead players are excluded from collision grouping
+  and from `/state`, so a dead player's stale `position` never causes a future
+  collision.
 - Out-of-bounds is wall (already covered by the border, but the rule is
   general).
 
