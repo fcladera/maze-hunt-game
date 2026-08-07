@@ -1,20 +1,27 @@
 # Maze Game — Player Instructions
 
-A simultaneous-turn, API-driven multiplayer arena on a 100×100 grid. You are
+A simultaneous-turn, API-driven multiplayer arena on an 80×80 grid. You are
 a single pixel. Every tick, all submitted moves resolve at once. Collect
 coins to gain life, outlast or crush other players, and survive.
 
 This document describes **only the API a player needs**. All calls are JSON
 over HTTP. Replace `http://HOST:8000` with the address of your server.
 
+> **⚠️ You MUST join before you can play.** Nothing works until you call
+> `POST /join` and receive an `auth_key`. There is no default identity and no
+> anonymous play: every other endpoint (`/move`, `/state`, `/current_tick`)
+> requires your `auth_key`, which is only returned by `/join`. If you skip
+> joining and call `/move` or `/state` directly, you will get `INVALID_AUTH`
+> and nothing will happen. **Join first, every time.**
+
 ---
 
 ## 1. The world
 
-- Grid is `100×100`, indices `0..99` on each axis.
+- Grid is `80×80`, indices `0..79` on each axis.
 - `x` = column (→ right), `y` = row (↓ down). A position is given as `[x, y]`.
-- The **border is always a wall** (`x` or `y` of `0` or `99`). The playable
-  interior is `x, y ∈ 1..98`.
+- The **border is always a wall** (`x` or `y` of `0` or `79`). The playable
+  interior is `x, y ∈ 1..78`.
 - Interior cells are one of: **empty**, **obstacle** (wall), a **player**, or
   a **coin**. Walls block movement.
 - Diagonal moves are legal; you can "cut corners" between two obstacle cells.
@@ -261,6 +268,7 @@ curl -s "http://HOST:8000/state?auth_key=rk7abc..."
 
 ```text
 1. POST /join            {"user_name": "alice"}        -> keep auth_key
+   *** You CANNOT play without doing this. /move and /state need auth_key. ***
 2. GET  /state           ?auth_key=KEY                 -> learn your position
 3. (every tick, before the timer fires)
      GET /current_tick   ?auth_key=KEY                 -> (optional) pace check
