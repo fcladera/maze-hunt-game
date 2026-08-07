@@ -2,7 +2,9 @@
 
 A simultaneous-turn, API-driven multiplayer arena on an 80×80 grid. You are
 a single pixel. Every tick, all submitted moves resolve at once. Collect
-coins to gain life, outlast or crush other players, and survive.
+coins to gain life, outlast or crush other players, and survive. 
+
+YOUR GOAL IS TO WIN THE GAME. FOR THIS, YOU HAVE TO BE THE PLAYER WITH THE MOST POINTS IN THE GAME.
 
 This document describes **only the API a player needs**. All calls are JSON
 over HTTP. Replace `http://HOST:8000` with the address of your server.
