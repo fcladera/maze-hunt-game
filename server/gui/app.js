@@ -144,7 +144,7 @@ function render() {
   }
 
   // players: bigger triangles, one random color each
-  const r = cell * 0.6; // circumradius → triangle fills ~the cell (bigger than a marker)
+  const r = cell * 0.9; // circumradius → match coin icon radius (outer glow is cell*0.9)
   for (const p of state.players) {
     const [x, y] = p.current_position;
     const cx = x * cell + cell / 2;
@@ -152,14 +152,12 @@ function render() {
     ctx.lineWidth = Math.max(1, cell * 0.08);
     drawTriangle(cx, cy, r, colorFor(p.id), "rgba(0,0,0,0.85)");
     // life pip along the bottom edge of the cell (under the triangle base)
-    const life = Math.max(0, Math.min(100, p.life));
+    const life = Math.max(0, Math.min(150, p.life));
     ctx.fillStyle = life > 50 ? "#3fb950" : life > 20 ? "#d29922" : "#f85149";
     const bh = Math.max(1, cell * 0.16);
-    ctx.fillRect(x * cell, y * cell + cell - bh, Math.round(cell * (life / 100)), bh);
+    ctx.fillRect(x * cell, y * cell + cell - bh, Math.round(cell * (life / 150)), bh);
   }
 
-  $("tick").textContent = state.tick;
-  $("count").textContent = state.players.length;
   $("hud").textContent =
     `tick ${state.tick} · ${state.players.length} alive · ${state.coins.length} coins · ${cell}px`;
 
@@ -173,13 +171,14 @@ function renderPanels() {
   list.innerHTML = "";
   for (const p of [...state.players].sort((a, b) => b.life - a.life)) {
     const li = document.createElement("li");
-    const lifePct = Math.max(0, Math.min(100, Math.round((p.life / 100) * 100)));
+    const lifePct = Math.max(0, Math.min(100, Math.round((p.life / 150) * 100)));
     li.innerHTML = `
       <svg class="swatch" viewBox="0 0 10 10" aria-hidden="true"><polygon points="5,1 9,9 1,9" fill="${colorFor(p.id)}" stroke="rgba(0,0,0,0.8)"/></svg>
       <span class="name">${escapeHtml(p.name)}</span>
       <span class="bar"><i style="width:${lifePct}%"></i></span>
       <span class="lv">${p.life}</span>
-      <span class="pos">c${p.coins_captured}</span>`;
+      <span class="pos" title="coins captured">c${p.coins_captured}</span>
+      <span class="pos" title="movements">m${p.motion_count}</span>`;
     list.appendChild(li);
   }
 
