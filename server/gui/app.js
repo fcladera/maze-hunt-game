@@ -38,7 +38,7 @@ function toast(msg, kind = "") {
   t.textContent = msg;
   t.className = "toast" + (kind ? " " + kind : "");
   if (toastTimer) clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.add("hidden"), 2600);
+  toastTimer = setTimeout(() => t.classList.add("hidden"), 5000);
 }
 
 // --- per-player random color (assigned once, cached by id) ----------------
@@ -175,7 +175,7 @@ function renderPanels() {
     const li = document.createElement("li");
     const lifePct = Math.max(0, Math.min(100, Math.round((p.life / 100) * 100)));
     li.innerHTML = `
-      <span class="dot" style="background:${colorFor(p.id)}"></span>
+      <svg class="swatch" viewBox="0 0 10 10" aria-hidden="true"><polygon points="5,1 9,9 1,9" fill="${colorFor(p.id)}" stroke="rgba(0,0,0,0.8)"/></svg>
       <span class="name">${escapeHtml(p.name)}</span>
       <span class="bar"><i style="width:${lifePct}%"></i></span>
       <span class="lv">${p.life}</span>

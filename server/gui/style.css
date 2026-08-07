@@ -139,6 +139,8 @@ li {
 }
 li:last-child { border-bottom: none; }
 .dot { width: 10px; height: 10px; border-radius: 2px; flex: 0 0 auto; }
+/* Triangle player swatch in the player list (matches board icon) */
+.swatch { width: 12px; height: 12px; flex: 0 0 auto; }
 .bar {
   flex: 1;
   height: 6px;
@@ -151,16 +153,6 @@ li:last-child { border-bottom: none; }
 li .name { flex: 0 0 auto; }
 li .pos { color: var(--muted); font-size: 11px; }
 li .lv { color: var(--text); font-variant-numeric: tabular-nums; }
-
-.legend li { gap: 10px; }
-/* CSS triangle swatch for the "player" legend entry */
-.tri {
-  width: 0; height: 0;
-  border-left: 8px solid transparent;
-  border-right: 8px solid transparent;
-  border-bottom: 14px solid var(--accent);
-  flex: 0 0 auto;
-}
 
 .toast {
   position: fixed;
