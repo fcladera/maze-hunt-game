@@ -41,12 +41,33 @@ function toast(msg, kind = "") {
   toastTimer = setTimeout(() => t.classList.add("hidden"), 5000);
 }
 
-// --- per-player random color (assigned once, cached by id) ----------------
+// --- per-player color (curated palette, cached by id) ---------------------
+// Curated ~32-color palette, hand-tuned so every hue stays vivid on the dark
+// board (yellows/greens/cyans brightened so they don't read as muddy). Players
+// cycle by id; beyond the palette we fall back to a golden-angle HSL spread so
+// 30+ players never silently repeat a color. Stable across reconnects/polls.
+const PALETTE = [
+  "#f87171", "#60a5fa", "#fbbf24", "#22d3ee", // red, blue, amber, cyan
+  "#fb923c", "#a78bfa", "#4ade80", "#f472b6", // orange, violet, green, pink
+  "#facc15", "#818cf8", "#2dd4bf", "#fb7185", // yellow, indigo, teal, rose
+  "#a3e635", "#c084fc", "#38bdf8", "#fda4af", // lime, purple, sky, light-rose
+  "#fde047", "#7c3aed", "#10b981", "#ec4899", // bright-yellow, deep-violet, emerald, magenta
+  "#fcd34d", "#6366f1", "#14b8a6", "#f9a8d4", // gold, deep-indigo, teal-2, light-pink
+  "#bef264", "#d946ef", "#0ea5e9", "#f87171", // soft-lime, fuchsia, sky-2, red-2 (deep)
+  "#fdba74", "#8b5cf6", "#65a30d", "#e11d48", // light-orange, deep-purple, olive, crimson
+];
 function colorFor(id) {
   let c = state.colors.get(id);
   if (c) return c;
-  const hue = Math.floor(Math.random() * 360);
-  c = `hsl(${hue} 75% 60%)`;
+  const n = Number(id);
+  const i = (n - 1) % PALETTE.length;
+  if (n - 1 < PALETTE.length) {
+    c = PALETTE[i];
+  } else {
+    // overflow: golden-angle hue at fixed vivid S/L for >32 players
+    const hue = ((n * 137.508) % 360 + 360) % 360;
+    c = `hsl(${hue.toFixed(1)} 70% 62%)`;
+  }
   state.colors.set(id, c);
   return c;
 }
@@ -144,7 +165,7 @@ function render() {
   }
 
   // players: bigger triangles, one random color each
-  const r = cell * 0.9; // circumradius → match coin icon radius (outer glow is cell*0.9)
+  const r = cell * 1.2; // circumradius → big bold triangles (overflow into neighbours is fine)
   for (const p of state.players) {
     const [x, y] = p.current_position;
     const cx = x * cell + cell / 2;
