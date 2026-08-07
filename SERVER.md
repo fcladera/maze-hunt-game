@@ -1,6 +1,6 @@
 # SERVER.md — Game Engine Strategy & Design
 
-A simultaneous-turn, API-driven multiplayer arena on a 100×100 grid. The
+A simultaneous-turn, API-driven multiplayer arena on an 80×80 grid. The
 border is a wall; obstacle lines radiate from the walls toward the center.
 Players are single pixels. Each tick all submitted moves resolve at once.
 Collisions are decided by **life** (higher survives), where
@@ -12,10 +12,10 @@ Collisions are decided by **life** (higher survives), where
 
 ## 1. Coordinate system, directions, life
 
-- Grid `100×100`, indices `0..99` on each axis.
+- Grid `80×80`, indices `0..79` on each axis.
 - `x` = column (→ right), `y` = row (↓ down).
-- **Border is always wall**: every cell with `x∈{0,99}` or `y∈{0,99}` is an
-  obstacle. Playable interior is `x,y ∈ 1..98` (98×98 = 9604 cells).
+- **Border is always wall**: every cell with `x∈{0,79}` or `y∈{0,79}` is an
+  obstacle. Playable interior is `x,y ∈ 1..78` (78×78 = 6084 cells).
 - Interior cells are: **empty**, **obstacle** (wall), a **player**, or a
   **coin**. After tick resolution no two *alive* players share a cell. When
   several players collide on a cell, only the highest-life survivor occupies it
@@ -47,7 +47,7 @@ blocked by a wall still costs  +1 motion.
 
 ## 2. World model
 
-The world is represented by a single 100x100 array, uint8. Each cell can be
+The world is represented by a single 80x80 array, uint8. Each cell can be
  - 0: empty
  - 1: obstacle
  - 2: player
@@ -85,19 +85,19 @@ Player
 ## 3. Obstacle generation (changes #2, #3, #4)
 
 ### 3.1 Border wall (change #2)
-Set every border cell (`x=0`, `x=99`, `y=0`, `y=99`) as obstacle. These are
+Set every border cell (`x=0`, `x=79`, `y=0`, `y=79`) as obstacle. These are
 permanent for the round.
 
 ### 3.2 Radial lines (change #3)
 Generate `NUM_LINES` lines (default 16, configurable). For each line:
 1. Pick a side uniformly: top / bottom / left / right.
-2. Pick a starting coordinate along that side in `1..98` (interior range; the
+2. Pick a starting coordinate along that side in `1..78` (interior range; the
    border cell itself is already wall).
-3. Pick a length `L` in `[MIN_LINE_LEN, MAX_LINE_LEN]` (default `[15, 45]`).
+3. Pick a length `L` in `[MIN_LINE_LEN, MAX_LINE_LEN]` (default `[12, 36]`).
 4. Draw the line perpendicular to the wall, inward, for `L` cells.
 
 This yields "spokes" radiating from the perimeter toward — but stopping short
-of — the center (row/col ~49), leaving an open central band. "As far as the
+of — the center (row/col ~39), leaving an open central band. "As far as the
 middle" is interpreted as *up to the middle* (lines reach near it, not past
 it); the open center keeps corridors connected.
 

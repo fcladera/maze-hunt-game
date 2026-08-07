@@ -17,7 +17,7 @@ def _float(name, default):
 
 
 # Grid / life
-GRID_SIZE = _int("MG_GRID_SIZE", 100)
+GRID_SIZE = _int("MG_GRID_SIZE", 80)
 BASE_LIFE = _int("MG_BASE_LIFE", 50)
 COIN_LIFE_BONUS = _int("MG_COIN_LIFE_BONUS", 20)
 
@@ -30,8 +30,8 @@ TICK_INTERVAL = _float("MG_TICK_INTERVAL", 2.0)
 
 # Obstacle generation
 NUM_LINES = _int("MG_NUM_LINES", 16)
-MIN_LINE_LEN = _int("MG_MIN_LINE_LEN", 15)
-MAX_LINE_LEN = _int("MG_MAX_LINE_LEN", 45)
+MIN_LINE_LEN = _int("MG_MIN_LINE_LEN", 12)
+MAX_LINE_LEN = _int("MG_MAX_LINE_LEN", 36)
 MAX_GEN_ATTEMPTS = _int("MG_MAX_GEN_ATTEMPTS", 200)
 
 # Players

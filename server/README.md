@@ -1,6 +1,6 @@
 # Maze Game Server
 
-Simultaneous-turn, API-driven multiplayer arena on a 100x100 grid.
+Simultaneous-turn, API-driven multiplayer arena on an 80x80 grid.
 See `../SERVER.md` for the full specification.
 
 ## Run
@@ -36,15 +36,15 @@ Errors are non-2xx with `{"error": "...", "code": "..."}`.
 
 | Var                 | Default | Meaning                              |
 |---------------------|---------|--------------------------------------|
-| `MG_GRID_SIZE`      | 100     | grid edge length                     |
+| `MG_GRID_SIZE`      | 80      | grid edge length                     |
 | `MG_BASE_LIFE`      | 50      | starting life                        |
 | `MG_COIN_LIFE_BONUS`| 20      | life granted per captured coin       |
 | `MG_COIN_INTERVAL`  | 10      | spawn a coin every N ticks           |
 | `MG_MAX_COINS`      | 10      | cap on simultaneous coins            |
 | `MG_TICK_INTERVAL`  | 2.0     | seconds per tick                     |
 | `MG_NUM_LINES`      | 16      | radial obstacle lines                |
-| `MG_MIN_LINE_LEN`   | 15      | min line length                      |
-| `MG_MAX_LINE_LEN`   | 45      | max line length                      |
+| `MG_MIN_LINE_LEN`   | 12      | min line length                      |
+| `MG_MAX_LINE_LEN`   | 36      | max line length                      |
 | `MG_MAX_GEN_ATTEMPTS`| 200    | connectivity retry attempts          |
 | `MG_MAX_PLAYERS`    | 100     | max alive players                    |
 | `MG_GEN_SEED`       | random  | fixed obstacle-generation seed      |

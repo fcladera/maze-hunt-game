@@ -8,15 +8,15 @@ import pytest
 import config
 
 # --- Pin deterministic defaults ---
-config.GRID_SIZE = 100
+config.GRID_SIZE = 80
 config.BASE_LIFE = 50
 config.COIN_LIFE_BONUS = 20
 config.COIN_INTERVAL = 10
 config.MAX_COINS = 10
 config.TICK_INTERVAL = 2.0
 config.NUM_LINES = 16
-config.MIN_LINE_LEN = 15
-config.MAX_LINE_LEN = 45
+config.MIN_LINE_LEN = 12
+config.MAX_LINE_LEN = 36
 config.MAX_GEN_ATTEMPTS = 200
 config.MAX_PLAYERS = 100
 
