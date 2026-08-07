@@ -50,6 +50,10 @@ The world is represented by a single 100x100 array, uint8. Each cell can be
  - 2: player
  - 3: coin
 
+Arrays use numpy axis order `[row, col] = [y, x]`, so the cell at coordinate
+`(x, y)` is read/written as `grid[y, x]`. All array accesses below follow
+this convention (e.g. `obstacle_grid[ny, nx]`).
+
 ```
 GameState (singleton, in-memory)
 ├── config            # constants (sizes, intervals, coin ticks, flags)
@@ -175,17 +179,26 @@ resolve_tick():
       p.motion_count += 1                        # a directional move always counts
       # life = BASE_LIFE + 20*coins_captured - motion_count  => -1 from this move
       (nx, ny) = p.position + delta(d)
-      if not in_bounds(nx,ny) or obstacle_grid[nx,ny]:
-          targets[p.id] = p.position              # blocked -> stay (but counted, D4)
+      if not in_bounds(nx,ny) or obstacle_grid[ny,nx]:
+          targets[p.id] = p.position              # blocked -> stay (but counted)
       else:
           targets[p.id] = (nx, ny)
 
-  # 2. Group players by the cell they effectively end on.
+  # 2. Exhaustion: a player whose life dropped to <= 0 from the move dies now.
+  #    Checked BEFORE collision grouping: the exhausted mover vacates its
+  #    origin and takes no part in any collision (its target cell is free).
+  for pid in list(targets):
+      if players[pid].life <= 0:
+          players[pid].alive = False
+          players[pid].died_at = T + 1
+          del targets[pid]
+
+  # 3. Group players by the cell they effectively end on.
   groups = defaultdict(list)                     # (x,y) -> [player_id,...]
   for pid, cell in targets.items():
       groups[cell].append(pid)
 
-  # 3. Resolve collisions by LIFE (higher survives; tie -> all die).
+  # 4. Resolve collisions by LIFE (higher survives; tie -> all die).
   deaths = []
   survivors = set()
   for cell, pids in groups.items():
@@ -201,14 +214,14 @@ resolve_tick():
           else:                                  # tie at the max life -> all die 
               deaths += pids
 
-  # 4. Apply deaths and movement.
+  # 5. Apply deaths and movement.
   for pid in deaths:
       players[pid].alive = False
       players[pid].died_at = T + 1
   for pid in survivors:
       players[pid].position = targets[pid]
 
-  # 5. Coin capture (after collisions).
+  # 6. Coin capture (after collisions).
   for coin in list(game.coins_uncollected):
       occupants = [pid for pid in survivors if targets[pid] == coin]
       if len(occupants) == 1:                    # exactly one alive player on the coin
@@ -216,7 +229,7 @@ resolve_tick():
           players[pid].coins_captured += 1                # => life += 20
           game.coins_uncollected.remove(coin)
 
-  # 6. Advance clock, spawn coins, snapshot.
+  # 7. Advance clock, spawn coins, snapshot.
   game.tick = T + 1
   if game.tick > 0 and game.tick % COIN_INTERVAL == 0 and len(game.coins_uncollected) < MAX_COINS:
       spawn_coin()                               # random free cell, §4
@@ -230,6 +243,9 @@ Properties:
   collision; they pass through each other.
 - **Mover vs stayer collide** on the stayer's cell, resolved by life.
 - **Dead players vacate their origin**, so others may move into it.
+- **Exhaustion death is pre-collision**: a mover whose life drops to ≤ 0 from
+  the motion cost dies immediately and does not engage in a collision that
+  tick (its target cell is free for others).
 - **Blocked moves still cost life/motion**.
 - **Coin capture is post-collision**: grabbing a contested coin risks
   dying before you can claim it; the +20 aids future fights.
@@ -242,7 +258,9 @@ Properties:
   processed (up/down/left/right/diagonal), whether or not it displaced the
   player. Blocked moves count. `stay` and "no submission" do **not** count.
 - Both `motion_count` (original history) and `life` are frozen at death.
-- If a player reaches 0 life, it is also dead.
+- If a player's life drops to ≤ 0, the player is dead. In tick resolution this
+  is checked right after the motion cost is applied and before collision
+  grouping (§6 step 2); the exhausted mover does not participate in collisions.
 
 ---
 
@@ -261,7 +279,12 @@ Response 200:
   "current_position": [42, 17],
 }
 ```
-Errors: `NO_ROOM`, `ALREADY_JOINED`, `INVALID_NAME`.
+Errors: `NO_ROOM`, `ALREADY_JOINED`, `INVALID_NAME`, `DEAD_CANNOT_REJOIN`.
+
+**No respawn:** a dead player can never rejoin. `name_to_id` is never pruned:
+if `user_name` maps to a currently **alive** player → `ALREADY_JOINED`; if it
+maps to a **dead** player → `DEAD_CANNOT_REJOIN`. A round ends for a name once
+its player dies.
 
 ### `POST /move`
 Request: `{"auth_key": "rk7...", "direction": "up"}`
@@ -297,6 +320,9 @@ Response 200:
   "obstacles_location": [[0,0], "..."],
 }
 ```
+Note: `players` lists **other alive players only** — it excludes `you` and
+excludes all dead players (dead players never appear anywhere in the
+response). `you.alive` reflects your own liveness.
 Errors: `INVALID_AUTH`
 
 ---
@@ -333,7 +359,7 @@ server/
     ├── test_tick.py         # simultaneous moves, swaps, blocked, bounds, stay free
     ├── test_collisions.py   # higher-life wins, tie->all die, mover-vs-stayer
     ├── test_coins.py         # spawn every 10 ticks, capture post-collision, +20 life
-    └── test_api.py          # join/move/state flows, death, rejoin, coin in state
+    └── test_api.py          # join/move/state flows, death, rejoin rejection
 ```
 
 Critical unit tests (must pass before shipping):
@@ -351,3 +377,8 @@ Critical unit tests (must pass before shipping):
    capturing one → `coins_captured+1`, coin removed; post-collision capture
    only (contested coin not duplicated).
 9. Late joiner (life 50) vs coin-holder (life 70) collide → coin-holder lives.
+10. Exhaustion: a player at life 1 that makes a directional move (no coin)
+    ends the tick dead (`life ≤ 0`, `alive=false`), and does not collide that
+    tick.
+11. A dead player's `user_name` is rejected on `/join` with
+    `DEAD_CANNOT_REJOIN`; dead players never appear in `/state` `players`.
